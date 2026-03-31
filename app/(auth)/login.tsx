@@ -17,20 +17,9 @@ import * as LocalAuthentication from "expo-local-authentication";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 
-export const useWarmUpBrowser = () => {
-  useEffect(() => {
-    void WebBrowser.warmUpAsync();
-    return () => {
-      void WebBrowser.coolDownAsync();
-    };
-  }, []);
-};
-
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
-  useWarmUpBrowser();
-
   const { signIn, setActive, isLoaded } = useSignIn();
   const { isSignedIn } = useAuth();
   const { startOAuthFlow: googleOAuth } = useOAuth({
@@ -250,6 +239,7 @@ export default function LoginScreen() {
       }
     } finally {
       setLoading(false);
+      
     }
   };
 

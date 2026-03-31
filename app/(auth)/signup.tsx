@@ -193,93 +193,45 @@ export default function SignupScreen() {
         if (oauthSignUp.status === "missing_requirements") {
           const needsUsername = oauthSignUp.missingFields?.includes("username");
 
-          // Best-effort auto username completion.
           if (needsUsername) {
-            const baseCandidate =
-              oauthSignUp.emailAddress?.split("@")[0] ||
-              oauthSignUp.firstName ||
-              "user";
-            const sanitizedBase = baseCandidate
-              .toLowerCase()
-              .replace(/[^a-z0-9_]/g, "")
-              .slice(0, 20);
-            const fallbackUsername = `hommie_${Math.floor(1000 + Math.random() * 9000)}`;
-            const generatedUsername = sanitizedBase || fallbackUsername;
-
-            try {
-              const updatedSignUp = await oauthSignUp.update({
-                username: generatedUsername,
-              });
-
-              if (
-                updatedSignUp.status === "complete" &&
-                updatedSignUp.createdSessionId
-              ) {
-                if (setActiveSession) {
-                  await setActiveSession({
-                    session: updatedSignUp.createdSessionId,
-                  });
-                }
-                router.replace("/(tabs)/home");
-                return;
-              }
-            } catch (usernameError) {
-              console.warn(
-                "Failed to auto-complete username for OAuth sign-up:",
-                usernameError,
-              );
-            }
-
-            // Try a few more candidates before giving up.
             const candidates = buildUsernameCandidates(
               oauthSignUp.emailAddress,
               `${oauthSignUp.firstName ?? ""} ${oauthSignUp.lastName ?? ""}`.trim(),
             );
 
+            let resolved = false;
+
             for (const username of candidates) {
               try {
                 const updatedSignUp = await oauthSignUp.update({ username });
 
-                if (
-                  updatedSignUp.status === "complete" &&
-                  updatedSignUp.createdSessionId
-                ) {
+                if (updatedSignUp.status === "complete" && updatedSignUp.createdSessionId) {
                   if (setActiveSession) {
-                    await setActiveSession({
-                      session: updatedSignUp.createdSessionId,
-                    });
+                    await setActiveSession({ session: updatedSignUp.createdSessionId });
                   }
                   router.replace("/(tabs)/home");
-                  return;
+                  resolved = true;
+                  break;
                 }
               } catch (usernameError: any) {
                 console.log("Username candidate failed:", {
                   username,
-                  message:
-                    usernameError?.errors?.[0]?.message ??
-                    usernameError?.message,
+                  message: usernameError?.errors?.[0]?.message ?? usernameError?.message,
                 });
               }
             }
 
-            Alert.alert(
-              "Almost done",
-              "We couldn't finish sign up automatically. Please create a username to continue.",
-            );
-            return;
-          }
-
-          // Email verification may still be needed
-          if (oauthSignUp.emailAddress) {
+            if (!resolved) {
+              Alert.alert(
+                "Almost done",
+                "We couldn't finish Google sign up automatically. Please create a username to continue in Clerk settings.",
+              );
+            }
+          } else if (oauthSignUp.emailAddress) {
             router.push({
               pathname: "/email-verification",
               params: { email: oauthSignUp.emailAddress, signup: "true" },
             });
-          } else {
-            Alert.alert(
-              "Almost there",
-              "Please finish your profile details to complete sign up.",
-            );
           }
         } else {
           router.replace("/(tabs)/home"); // Fallback route after sign-up
